@@ -1,0 +1,242 @@
+
+-------------------------------------------------------------------------------------
+CPS590 Assignment 2: MikMak
+
+  -See assign2Addendum.txt for modifications, QA, etc.
+  -The due date is firm. No late submissions accepted.
+
+  -You may work in groups of 1-5 people, with no marking penalty.
+  -See groups.txt for submission and group information.
+  -submit using: submit-cps590dwoit
+  -include compilation instructions in comments at the start of your programs
+
+  -Deliverables (from "submit-person"):
+   MikMak.c         //the client source program
+   MikMak           //the client executable
+   MikMakServer.c   //the server executable program
+   MikMakServer     //the server executable
+   *                //any other files it needs (such as .h files)
+   Makefile         //OPTIONAL
+
+
+-------------------------------------------------------------------------------------
+
+NOTE: MQ = "System V message queue" in the following.
+
+
+OBJECTIVE:
+
+  Design and implement a Linux application called MikMak, for the CS moons. 
+  MikMak is similar to the well-known "Yik Yak" app, except that it: 
+    -is a desktop application only, 
+    -exists only on the CS moons,
+    -has a text-based interface,
+    -has an extremely limited set of functions/features. 
+
+BACKGROUND:
+
+  Yik Yak is a free mobile social media app; it has no desktop client.
+  The following is taken from the wikipedia Yik Yak page [http://en.wikipedia.org/wiki/Yik_Yak]:
+
+     Yik Yak is an anonymous social media app. It is available for iOS and Android and it allows 
+     people anonymously to create and view "Yaks" within a 10 mile radius. It differs from other 
+     anonymous sharing apps such as PostSecret and Whisper in that it is intended for sharing 
+     primarily with those in close proximity to the user, potentially making it more intimate 
+     and relevant for people reading the posts. All users have the ability to contribute to the 
+     stream by writing, responding, and liking or disliking yaks.
+
+  Read about Yik Yak's Functions and Features from the following wikipedia sections:
+  http://en.wikipedia.org/wiki/Yik_Yak#Function
+  http://en.wikipedia.org/wiki/Yik_Yak#Features
+
+MikMak FUNCTIONALITY AND FEATURES
+
+  MikMak DOES display a list of current Maks (our version of Yaks) to the client.
+  MikMak DOES include Upvote/Downvote functionality.
+  It does NOT include any other functions or features of Yik Yak, such as zones, yakarma,
+  peeks,  new/hot tabs, Yak reply, Yak delete, client names/handles, post time.
+
+CLIENT INTERFACE
+  
+  MikMak shows a list of the current Maks. The Maks are NUMBERED so that the client can 
+  refer to them using the text interface. Each client's list is numbered sequentially, 
+  from 1 to X (assuming X Maks are displayed), in the order in which they were received
+  at the server. Each Mak's vote-level is displayed after its number. The vote-level is 
+  positive or negative (thus, preceded by "+" or "-"), or zero.  
+
+  After the Mak-list, a menu is displayed, and the user can enter a command.
+  Commands are as follows:
+  R: Refresh. The screen is cleared, and the (possibly updated) Mak-list and menu 
+     are re-displayed. The Mak numbers are modified if required (if, for example, a
+     Mak has been removed from the list since the last display).
+  U <n>: Upvote Mak number <n> of the Mak-list
+  D <n>: Downvote Mak number <n> of the Mak-list
+  S <mak>: Send the Mak given by <mak>. The minimum requirements for this assignment are 
+           that a Mak should be from 1 to 50 ASCII characters, none of which are the 
+	   newline character. However, you can allow more complicated Maks if you wish
+	   (i.e., you can allow multiple lines, extended characters, etc).
+  E: Exit MikMak
+  
+  An example of Yik Yak's client is given in the YikYakClient.jpg image. 
+  MikMak's version of the Yak-list would as follows (and the Mak-list would be followed 
+  by a text menu):
+  
+  1. +7 Help. My GPA has fallen and it can't get up.
+  2. +3 Here's a study tip. Keep a bottle of whiteout handy and just white out the questions you don't like on the test.
+  3. -2 I tried to Facetime the campus police yesterday. Not a good idea
+  4. +34 Advice to all couples: when you feel an argument coming on, take a deep breath... of helium.
+
+  Updates to Client Mak-list:
+  When a Mak's vote-level changes, a client will not see the new vote-level until they
+  Refresh.
+
+  Up/Downvote:
+  A Mak disappears from the Mak-list when it vote-level reaches -5. Clients will, however, 
+  continue to see that Mak until they Refresh. (Note that if a Mak receives 6 upvotes and 
+  7 downvotes, it vote-level is -1).  MikMak should allow a single client to up/downvote 
+  a given Mak multiple times (unlike Yik Yak). Remember that ANY client can vote on any Mak. 
+
+  GUI:
+  MikMak does not include anything from the Yik Yak GUI except the Maks and the
+  votes. (No edit box, tabs, drop-down menu, no times, no up/downvote arrows, etc.)
+  
+
+STATE
+
+  MikMak only "exists" while the MikMak Server is running. When the server terminates,
+  everything is lost. 
+  A client only "exists" while its Client process is running; once it terminates, that 
+  client no longer exists, although her/his posted Maks will remain in the MikMak system
+  until the server terminates (or the Mak gets deleted due to its vote-level).
+
+  Race-conditions will occur on a Mak's vote-level. Handle this as follows: 
+    When the SERVER finds itself about to change a Mak's vote-level from -4 to -5, it 
+    instead deletes the Mak; if the server receives subsequent votes on that Mak, it 
+    simply ignores them.
+
+
+COMMUNICATION:
+  MikMak must run, and will be tested only, on a CS moon.
+  MikMak as exactly one server program and one client program. When MikMak is
+  active, one instance of the server program is running, and each client is
+  running one instance of the client program.
+  The server is responsible for maintaining the current Mak-list, the vote-levels, 
+  etc.  When a client votes, sends a Mak, exits, etc., that information does NOT 
+  go directly to the other clients.  The information is sent to the server, and 
+  the server sends appropriate information to the other clients, when required.
+  
+MQ MESSAGES:
+  Client/server communication takes place using Linux Message Queues (MQs).
+  You may use System V message queues as per the lab, or POSIX message queues.
+  (This assignment uses System V terminology, however.)
+
+  Your programs may use any number of MQs you wish. One common approach is: 
+    -A specific MQ key is hard-coded in server/client for a single "connect" MQ.
+    -All clients must use this "connect" MQ to request connection with MikMak. 
+  Once a client successfully connects, it may communicate with the server using 
+  one or more other, dynamically-created, MQs.
+
+  You can use ftok. However, use a file that is guaranteed to exist when we 
+  test your programs.
+
+  Messages sent on your MQs will each have an integer type (field mtype for 
+  System V MQs).  You could use the type field to distinguish among different 
+  categories of messages, if necessary.
+  If information is too great to fit into one message, you may divide it over 
+  more than one message, as necessary.
+  
+
+LIMITS:
+  You may wish to set some limits (use macro definitions when possible.)
+  Possible limits are:
+  The server may restrict the number of client connections. 
+  The server may limit the number of past Maks it maintains.
+
+
+THREADS:
+  Your server, and clients, may spawn threads, as necessary. You can use 
+  clone or pthreads.
+
+
+GLOBAL DATA:
+  It is allowed, but remember to account for race conditions. 
+  
+
+SYNCHRONIZATION/MUTUAL EXCLUSION:
+  Use any of the methods discussed in class, such as semaphores, signals, 
+  conditions, etc.
+
+CLEAN-UP:
+  Your code should clean up appropriately. e.g., delete all MQs, temporary 
+  files etc.  Functions such as atexit and on_exit might be useful. 
+  Your programs should catch SIGINT (at least) so that they can clean-up appropriately.
+  Note: you can have your Server program's termination method BE some signal.
+
+
+ROBUSTNESS/ASSUMPTIONS:
+  Programs should be reasonably robust (do reasonable error-checking). i.e.:
+  If a program detects an unexpected situation, such as the unplanned disappearance
+  of a MQ, then the program should clean-up and terminate gracefully.
+  If unexpected messages are received, the receiver may simply ignore them.
+  Server may assume messages it receives are correctly formatted (by client). 
+  Timed message receives are not required for this assignment, but you might
+  find them useful.
+  If the client user enters unacceptable input into the text interface, allow 
+  them to re-enter input until it is acceptable.
+
+
+EXAMPLE:
+Below is an example of a user using the MikMak application, assuming a MikMak
+server is running on this moon. Note:
+  - ">" is the user's shell prompt. 
+  -client input (menu response) is shown after ": ". 
+Your UI may differ.
+
+
+> MikMak 
+    --------------------------------------------------------------------------
+    1. +4  I feel like icecream
+    2. -3  Who are you sitting at DM starbucks in the red top?
+    3.  0  Anyone going to party in Cancun next month?
+    4. +23 I thought Yik Yak at 6ix would be poppin. Guess its only dope at uni
+    5. +1  Maybe I am a hater
+    6. +2  Wow. power outage!
+   
+    [R]eply U[p] D[own] S[end] E[xit]: D 2
+    [R]eply U[p] D[own] S[end] E[xit]: U 1
+    [R]eply U[p] D[own] S[end] E[xit]: S what's a message queue anyway?
+    [R]eply U[p] D[own] S[end] E[xit]: R
+    --------------------------------------------------------------------------
+    1. +6  I feel like icecream
+    2. -3  Anyone going to party in Cancun next month?
+    3. +19 I thought Yik Yak at 6ix would be poppin. Guess its only dope at uni
+    4. +4  Wow. power outage!
+    5. +17 Treat every crosswalk like a runway
+    6. +3  Any good coffee shops close by?
+    7.  0  what's a message queue anyway?
+   
+    [R]eply U[p] D[own] S[end] E[xit]: R
+    --------------------------------------------------------------------------
+    1. +6  I feel like icecream
+    2. +19 I thought Yik Yak at 6ix would be poppin. Guess its only dope at uni
+    3. +8  Wow. power outage!
+    4. +22 Treat every crosswalk like a runway
+    5.  0  Any good coffee shops close by?
+    6. +1  what's a message queue anyway?
+   
+    [R]eply U[p] D[own] S[end] E[xit]: E
+    --------------------------------------------------------------------------
+    Good-bye. 
+>
+
+
+GRADING:
+The program will be graded on various factors including the following:
+   Execution (passes our tests).
+   Functional Requirements (does at least everything from assign2.txt and assign2Addendum.txt).
+   Process Communication, Mutual Exclusion, Synchronization 
+   Robustness 
+   Modularity/Algorithms/Design 
+   Style/Documentation (easy to understand, no unnecessary side-effects, etc.)
+
+
